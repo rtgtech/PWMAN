@@ -12,49 +12,48 @@
 #include <termios.h>
 #include <unistd.h>
 #include <cstdint>
+using namespace std;
 
-using Entry = std::tuple<std::string, std::string, std::string>;
+using Entry = tuple<string, string, string>;
 
-const std::string MAGIC = "PWVN"; 
+const string MAGIC = "PWVN"; 
 const uint32_t VERSION = 1;
-constexpr size_t SALT_BYTES = crypto_pwhash_SALTBYTES; 
-constexpr size_t KEY_BYTES  = crypto_aead_xchacha20poly1305_ietf_KEYBYTES;
-constexpr size_t NONCE_BYTES = crypto_aead_xchacha20poly1305_ietf_NPUBBYTES;
 
+constexpr size_t SALT_BYTES = crypto_pwhash_SALTBYTES; 
+constexpr size_t KEY_BYTES  = crypto_aead_xchacha20poly1305_ietf_KEYBYTES; 
+constexpr size_t NONCE_BYTES = crypto_aead_xchacha20poly1305_ietf_NPUBBYTES; 
 
 const uint64_t OPSLIMIT = crypto_pwhash_OPSLIMIT_MODERATE;
 const size_t   MEMLIMIT = crypto_pwhash_MEMLIMIT_MODERATE;
 
-static bool file_exists(const std::string &path) {
+static bool file_exists(const string &path) {
     struct stat st;
     return (stat(path.c_str(), &st) == 0);
 }
 
-void copy_to_clipboard(const std::string& text) {
-    // works on WSL
-    std::string command = "echo \"" + text + "\" | clip.exe";
-    std::system(command.c_str());
+void copy_to_clipboard(const string& text) {
+    string command = "echo \"" + text + "\" | clip.exe";
+    system(command.c_str());
 }
 
-
-std::string prompt_hidden(const std::string &msg) {
-    std::cout << msg;
+string prompt_hidden(const string &msg) {
+    cout << msg;
     termios oldt, newt;
     tcgetattr(STDIN_FILENO, &oldt);
     newt = oldt;
     newt.c_lflag &= ~ECHO;
     tcsetattr(STDIN_FILENO, TCSANOW, &newt);
 
-    std::string input;
-    std::getline(std::cin, input);
+    string input;
+    getline(cin, input);
 
     tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
-    std::cout << "\n";
+    cout << "\n";
     return input;
 }
 
-static std::string escape_field(const std::string &s) {
-    std::string out;
+static string escape_field(const string &s) {
+    string out;
     out.reserve(s.size());
     for (char c : s) {
         if (c == '\\') out += "\\\\";
@@ -64,8 +63,8 @@ static std::string escape_field(const std::string &s) {
     }
     return out;
 }
-static std::string unescape_field(const std::string &s) {
-    std::string out;
+static string unescape_field(const string &s) {
+    string out;
     out.reserve(s.size());
     for (size_t i = 0; i < s.size(); ++i) {
         if (s[i] == '\\' && i + 1 < s.size()) {
@@ -79,36 +78,36 @@ static std::string unescape_field(const std::string &s) {
     return out;
 }
 
-static std::string serialize_vault(const std::map<std::string, Entry> &vault) {
-    std::ostringstream oss;
+static string serialize_vault(const map<string, Entry> &vault) {
+    ostringstream oss;
     for (auto &kv : vault) {
         oss << escape_field(kv.first) << '\t'
-            << escape_field(std::get<0>(kv.second)) << '\t'
-            << escape_field(std::get<1>(kv.second)) << '\t'
-            << escape_field(std::get<2>(kv.second)) << '\n';
+            << escape_field(get<0>(kv.second)) << '\t'
+            << escape_field(get<1>(kv.second)) << '\t'
+            << escape_field(get<2>(kv.second)) << '\n';
     }
     return oss.str();
 }
-static std::map<std::string, Entry> deserialize_vault(const std::string &data) {
-    std::map<std::string, Entry> vault;
-    std::istringstream iss(data);
-    std::string line;
-    while (std::getline(iss, line)) {
+static map<string, Entry> deserialize_vault(const string &data) {
+    map<string, Entry> vault;
+    istringstream iss(data);
+    string line;
+    while (getline(iss, line)) {
         if (line.empty()) continue;
-        std::vector<std::string> parts;
-        std::string cur;
-        std::istringstream lss(line);
-        while (std::getline(lss, cur, '\t')) parts.push_back(cur);
-        std::string name = parts.size() > 0 ? unescape_field(parts[0]) : "";
-        std::string user = parts.size() > 1 ? unescape_field(parts[1]) : "";
-        std::string pass = parts.size() > 2 ? unescape_field(parts[2]) : "";
-        std::string notes = parts.size() > 3 ? unescape_field(parts[3]) : "";
+        vector<string> parts;
+        string cur;
+        istringstream lss(line);
+        while (getline(lss, cur, '\t')) parts.push_back(cur);
+        string name = parts.size() > 0 ? unescape_field(parts[0]) : "";
+        string user = parts.size() > 1 ? unescape_field(parts[1]) : "";
+        string pass = parts.size() > 2 ? unescape_field(parts[2]) : "";
+        string notes = parts.size() > 3 ? unescape_field(parts[3]) : "";
         if (!name.empty()) vault[name] = {user, pass, notes};
     }
     return vault;
 }
 
-bool derive_key_from_password(const std::string &password, const unsigned char salt[SALT_BYTES], unsigned char out_key[KEY_BYTES]) {
+bool derive_key_from_password(const string &password, const unsigned char salt[SALT_BYTES], unsigned char out_key[KEY_BYTES]) {
     if (password.empty()) return false;
     if (crypto_pwhash(out_key, KEY_BYTES,
                       password.c_str(), password.size(),
@@ -120,7 +119,7 @@ bool derive_key_from_password(const std::string &password, const unsigned char s
     return true;
 }
 
-bool aead_encrypt(const std::string &plaintext, const unsigned char key[KEY_BYTES], std::vector<unsigned char> &out) {
+bool aead_encrypt(const string &plaintext, const unsigned char key[KEY_BYTES], vector<unsigned char> &out) {
     unsigned char nonce[NONCE_BYTES];
     randombytes_buf(nonce, NONCE_BYTES);
 
@@ -138,12 +137,12 @@ bool aead_encrypt(const std::string &plaintext, const unsigned char key[KEY_BYTE
     return true;
 }
 
-bool aead_decrypt(const std::vector<unsigned char> &in, const unsigned char key[KEY_BYTES], std::string &out_plain) {
+bool aead_decrypt(const vector<unsigned char> &in, const unsigned char key[KEY_BYTES], string &out_plain) {
     if (in.size() < NONCE_BYTES + crypto_aead_xchacha20poly1305_ietf_ABYTES) return false;
     const unsigned char *nonce = in.data();
     const unsigned char *c = in.data() + NONCE_BYTES;
     size_t clen = in.size() - NONCE_BYTES;
-    std::vector<unsigned char> m(clen);
+    vector<unsigned char> m(clen); 
     unsigned long long mlen = 0;
     if (crypto_aead_xchacha20poly1305_ietf_decrypt(
             m.data(), &mlen,
@@ -157,8 +156,8 @@ bool aead_decrypt(const std::vector<unsigned char> &in, const unsigned char key[
     return true;
 }
 
-bool write_encrypted_file(const std::string &path, const unsigned char salt[SALT_BYTES], const std::vector<unsigned char> &cipher) {
-    std::ofstream ofs(path, std::ios::binary | std::ios::trunc);
+bool write_encrypted_file(const string &path, const unsigned char salt[SALT_BYTES], const vector<unsigned char> &cipher) {
+    ofstream ofs(path, ios::binary | ios::trunc);
     if (!ofs) return false;
 
     ofs.write(MAGIC.data(), 4);
@@ -174,184 +173,186 @@ bool write_encrypted_file(const std::string &path, const unsigned char salt[SALT
     return ofs.good();
 }
 
-bool read_encrypted_file(const std::string &path, unsigned char salt[SALT_BYTES], std::vector<unsigned char> &cipher) {
-    std::ifstream ifs(path, std::ios::binary);
+bool read_encrypted_file(const string &path, unsigned char salt[SALT_BYTES], vector<unsigned char> &cipher) {
+    ifstream ifs(path, ios::binary);
     if (!ifs) return false;
     char magicbuf[4];
     ifs.read(magicbuf, 4);
     if (ifs.gcount() != 4) return false;
-    if (std::string(magicbuf, 4) != MAGIC) return false;
+    if (string(magicbuf, 4) != MAGIC) return false;
     char vb[4];
     ifs.read(vb, 4);
     if (ifs.gcount() != 4) return false;
     ifs.read((char*)salt, SALT_BYTES);
-    if (ifs.gcount() != (std::streamsize)SALT_BYTES) return false;
-    cipher.assign((std::istreambuf_iterator<char>(ifs)), {});
+    if (ifs.gcount() != (streamsize)SALT_BYTES) return false;
+    cipher.assign((istreambuf_iterator<char>(ifs)), {});
     return true;
 }
 
-bool load_vault(const std::string &path, std::map<std::string, Entry> &out_vault) {
+bool load_vault(const string &path, map<string, Entry> &out_vault) {
     unsigned char salt[SALT_BYTES];
-    std::vector<unsigned char> cipher;
+    vector<unsigned char> cipher;
     if (!read_encrypted_file(path, salt, cipher)) {
-        std::cerr << "Failed to read vault file or invalid format\n";
+        cerr << "Failed to read vault file or invalid format\n";
         return false;
     }
-    std::string password = prompt_hidden("Master password: ");
+    string password = prompt_hidden("Master password: ");
     unsigned char key[KEY_BYTES];
     if (!derive_key_from_password(password, salt, key)) {
-        std::cerr << "Key derivation failed\n";
+        cerr << "Key derivation failed\n";
         return false;
     }
     sodium_memzero((void*)password.data(), password.size());
-    std::string plain;
+    string plain;
     bool ok = aead_decrypt(cipher, key, plain);
     sodium_memzero(key, KEY_BYTES);
     if (!ok) {
-        std::cerr << "Decryption failed (wrong password or corrupt file)\n";
+        cerr << "Decryption failed (wrong password or corrupt file)\n";
         return false;
     }
     out_vault = deserialize_vault(plain);
     return true;
 }
 
-bool save_vault(const std::string &path, const std::map<std::string, Entry> &vault, const unsigned char salt[SALT_BYTES]) {
-    std::string data = serialize_vault(vault);
-    std::string password = prompt_hidden("Master password (to re-encrypt): ");
+bool save_vault(const string &path, const map<string, Entry> &vault, const unsigned char salt[SALT_BYTES]) {
+    string data = serialize_vault(vault);
+    string password = prompt_hidden("Master password (to re-encrypt): ");
     unsigned char key[KEY_BYTES];
     if (!derive_key_from_password(password, salt, key)) {
-        std::cerr << "Key derivation failed\n";
+        cerr << "Key derivation failed\n";
         return false;
     }
     sodium_memzero((void*)password.data(), password.size());
 
-    std::vector<unsigned char> cipher;
+    vector<unsigned char> cipher;
     if (!aead_encrypt(data, key, cipher)) {
         sodium_memzero(key, KEY_BYTES);
-        std::cerr << "Encryption failed\n";
+        cerr << "Encryption failed\n";
         return false;
     }
     sodium_memzero(key, KEY_BYTES);
     if (!write_encrypted_file(path, salt, cipher)) {
-        std::cerr << "Failed to write vault file\n";
+        cerr << "Failed to write vault file\n";
         return false;
     }
     return true;
 }
 
-int cmd_init(const std::string &path) {
+
+int cmd_init(const string &path) {
     if (file_exists(path)) {
-        std::cerr << "Error: file exists\n";
+        cerr << "Error: file exists\n";
         return 1;
     }
     unsigned char salt[SALT_BYTES];
     randombytes_buf(salt, SALT_BYTES);
-    std::map<std::string, Entry> empty;
+    map<string, Entry> empty;
     if (!save_vault(path, empty, salt)) return 1;
-    std::cout << "Initialized encrypted vault: " << path << "\n";
+    cout << "Initialized encrypted vault: " << path << "\n";
     return 0;
 }
 
-int cmd_add(const std::string &path, const std::string &name) {
+int cmd_add(const string &path, const string &name) {
     if (!file_exists(path)) {
-        std::cerr << "Vault missing. Run init first.\n";
+        cerr << "Vault missing. Run init first.\n";
         return 1;
     }
     unsigned char salt[SALT_BYTES];
-    std::vector<unsigned char> cipher;
-    if (!read_encrypted_file(path, salt, cipher)) { std::cerr << "Read failed\n"; return 1; }
-    std::string password = prompt_hidden("Master password: ");
+    vector<unsigned char> cipher;
+    if (!read_encrypted_file(path, salt, cipher)) { cerr << "Read failed\n"; return 1; }
+
+    string password = prompt_hidden("Master password: ");
     unsigned char key[KEY_BYTES];
-    if (!derive_key_from_password(password, salt, key)) { std::cerr << "KDF failed\n"; return 1; }
+    if (!derive_key_from_password(password, salt, key)) { cerr << "KDF failed\n"; return 1; }
     sodium_memzero((void*)password.data(), password.size());
 
-    std::string plain;
-    if (!aead_decrypt(cipher, key, plain)) { sodium_memzero(key, KEY_BYTES); std::cerr << "Decrypt failed\n"; return 1; }
+    string plain;
+    if (!aead_decrypt(cipher, key, plain)) { sodium_memzero(key, KEY_BYTES); cerr << "Decrypt failed\n"; return 1; }
     auto vault = deserialize_vault(plain);
 
-    std::string user, pass, notes;
-    std::cout << "Username: "; std::getline(std::cin, user);
-    std::cout << "Password: "; std::getline(std::cin, pass);
-    std::cout << "Notes: "; std::getline(std::cin, notes);
+    string user, pass, notes;
+    cout << "Username: "; getline(cin, user);
+    cout << "Password: "; getline(cin, pass);
+    cout << "Notes: "; getline(cin, notes);
 
     vault[name] = {user, pass, notes};
 
-    std::vector<unsigned char> new_cipher;
+    vector<unsigned char> new_cipher;
     if (!aead_encrypt(serialize_vault(vault), key, new_cipher)) {
         sodium_memzero(key, KEY_BYTES);
-        std::cerr << "Encrypt failed\n";
+        cerr << "Encrypt failed\n";
         return 1;
     }
     sodium_memzero(key, KEY_BYTES);
 
     if (!write_encrypted_file(path, salt, new_cipher)) {
-        std::cerr << "Write failed\n";
+        cerr << "Write failed\n";
         return 1;
     }
-    std::cout << "Added entry '" << name << "'\n";
+    cout << "Added entry '" << name << "'\n";
     return 0;
 }
 
-int cmd_list(const std::string &path) {
-    std::map<std::string, Entry> vault;
+int cmd_list(const string &path) {
+    map<string, Entry> vault;
     if (!load_vault(path, vault)) return 1;
-    if (vault.empty()) { std::cout << "Vault empty\n"; return 0; }
-    std::cout << "Entries:\n";
-    for (auto &kv : vault) std::cout << " - " << kv.first << "\n";
+    if (vault.empty()) { cout << "Vault empty\n"; return 0; }
+    cout << "Entries:\n";
+    for (auto &kv : vault) cout << " - " << kv.first << "\n";
     return 0;
 }
 
-int cmd_get(const std::string &path, const std::string &name) {
-    std::map<std::string, Entry> vault;
+int cmd_get(const string &path, const string &name) {
+    map<string, Entry> vault;
     if (!load_vault(path, vault)) return 1;
     auto it = vault.find(name);
-    if (it == vault.end()) { std::cerr << "Not found\n"; return 1; }
-    std::cout << "Name: " << name << "\n";
-    std::cout << "User: " << std::get<0>(it->second) << "\n";
-    std::cout << "Password: " << std::get<1>(it->second) << "\n";
-    std::cout << "Notes: " << std::get<2>(it->second) << "\n";
+    if (it == vault.end()) { cerr << "Not found\n"; return 1; }
+    cout << "Name: " << name << "\n";
+    cout << "User: " << get<0>(it->second) << "\n";
+    cout << "Password: " << get<1>(it->second) << "\n";
+    cout << "Notes: " << get<2>(it->second) << "\n";
     return 0;
 }
 
 int main(int argc, char **argv) {
     if (sodium_init() < 0) {
-        std::cerr << "libsodium init failed\n";
+        cerr << "libsodium init failed\n";
         return 1;
     }
     if (argc < 3) {
-        std::cerr << "Usage: pwman <vaultfile> <command> [name]\n";
-        std::cerr << "Commands: init, add <name>, list, get <name>\n";
+        cerr << "Usage: pwman <vaultfile> <command> [name]\n";
+        cerr << "Commands: init, add <name>, list, get <name>\n";
         return 1;
     }
-    std::string path = argv[1];
-    std::string cmd = argv[2];
+    string path = argv[1];
+    string cmd = argv[2];
 
     if (cmd == "init") return cmd_init(path);
-    if (cmd == "add") { if (argc < 4) { std::cerr << "add requires name\n"; return 1; } return cmd_add(path, argv[3]); }
+    if (cmd == "add") { if (argc < 4) { cerr << "add requires name\n"; return 1; } return cmd_add(path, argv[3]); }
     if (cmd == "list") return cmd_list(path);
-    if (cmd == "get") { if (argc < 4) { std::cerr << "get requires name\n"; return 1; } return cmd_get(path, argv[3]); }
+    if (cmd == "get") { if (argc < 4) { cerr << "get requires name\n"; return 1; } return cmd_get(path, argv[3]); }
     if (cmd == "cpy") {
         if (argc < 4) {
-            std::cerr << "Usage: " << argv[0] << " <vault> cpy <name>\n";
+            cerr << "Usage: " << argv[0] << " <vault> cpy <name>\n";
             return 1;
         }
-        std::string vault_file = argv[1];
-        std::string name = argv[3];
-        std::map<std::string, Entry> vault;
+        string vault_file = argv[1];
+        string name = argv[3];
+
+        map<string, Entry> vault;
         if (!load_vault(path, vault)) return 1;
 
-        auto it = vault.find(name);
+        auto it = vault.find(name); 
         if (it == vault.end()) {
-            std::cerr << "No entry named '" << name << "'\n";
+            cerr << "No entry named '" << name << "'\n";
             return 1;
         }
 
-        const std::string& password = std::get<1>(it->second); 
+        const string& password = get<1>(it->second); 
         copy_to_clipboard(password);
-        std::cout << "Password for '" << name << "' copied to Windows clipboard.\n";
+        cout << "Password for '" << name << "' copied to Windows clipboard.\n";
         return 0;
     }
-    std::cerr << "Unknown command\n";
+    cerr << "Unknown command\n";
     return 1;
 }
-
