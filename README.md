@@ -24,8 +24,16 @@ $./pwman vault.bin list         #list all entries
 $./pwman vault.bin cpy _entry   #copy the password of "_entry" to clipboard
 ```
 
-```bash
-$./g++ 
+*Install dependency (Linux/WSL):*
+```
+$sudo apt install libsodium-dev
+```
+
+*Build (Linux/WSL):*
+```
+$clang++ -std=c++17 -O2 pwman.cpp -lsodium -o pwman
+#OR
+$g++ -std=c++17 -O2 pwman.cpp -lsodium -o pwman
 ```
 
 > Notes:
