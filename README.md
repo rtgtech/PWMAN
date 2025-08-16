@@ -24,6 +24,10 @@ $./pwman vault.bin list         #list all entries
 $./pwman vault.bin cpy _entry   #copy the password of "_entry" to clipboard
 ```
 
+```bash
+$./g++ 
+```
+
 > Notes:
 > All options work on Windows subsystem for Linux (WSL Ubuntu-24.04).
 > "cpy" option's compatability with other systems has not been established.
