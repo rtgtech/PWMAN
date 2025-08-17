@@ -1,8 +1,6 @@
-#include <cstdlib>
 #include <iostream>
 #include <fstream>
 #include <sstream>
-#include <string>
 #include <map>
 #include <tuple>
 #include <vector>
@@ -11,7 +9,6 @@
 #include <sodium.h>
 #include <termios.h>
 #include <unistd.h>
-#include <cstdint>
 using namespace std;
 
 using Entry = tuple<string, string, string>;
@@ -29,11 +26,6 @@ const size_t   MEMLIMIT = crypto_pwhash_MEMLIMIT_MODERATE;
 static bool file_exists(const string &path) {
     struct stat st;
     return (stat(path.c_str(), &st) == 0);
-}
-
-void copy_to_clipboard(const string& text) {
-    string command = "echo \"" + text + "\" | clip.exe";
-    system(command.c_str());
 }
 
 string prompt_hidden(const string &msg) {
@@ -331,28 +323,7 @@ int main(int argc, char **argv) {
     if (cmd == "add") { if (argc < 4) { cerr << "add requires name\n"; return 1; } return cmd_add(path, argv[3]); }
     if (cmd == "list") return cmd_list(path);
     if (cmd == "get") { if (argc < 4) { cerr << "get requires name\n"; return 1; } return cmd_get(path, argv[3]); }
-    if (cmd == "cpy") {
-        if (argc < 4) {
-            cerr << "Usage: " << argv[0] << " <vault> cpy <name>\n";
-            return 1;
-        }
-        string vault_file = argv[1];
-        string name = argv[3];
-
-        map<string, Entry> vault;
-        if (!load_vault(path, vault)) return 1;
-
-        auto it = vault.find(name); 
-        if (it == vault.end()) {
-            cerr << "No entry named '" << name << "'\n";
-            return 1;
-        }
-
-        const string& password = get<1>(it->second); 
-        copy_to_clipboard(password);
-        cout << "Password for '" << name << "' copied to Windows clipboard.\n";
-        return 0;
-    }
     cerr << "Unknown command\n";
     return 1;
 }
+
