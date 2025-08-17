@@ -21,7 +21,28 @@ $./pwman vault.bin get _entry   #get the data stored in entry "_entry"
 
 $./pwman vault.bin list         #list all entries
 
-$./pwman vault.bin cpy _entry   #copy the password of "_entry" to clipboard
+#Windows only
+
+$./pwman vault.bin cpy _entry   #copy the password of "_entry" to clipboard.
+```
+
+*Install dependency (Windows):*
+
+Download a libsodium release:
+
+[List of all official releases](https://download.libsodium.org/libsodium/releases/)
+
+Download the release used in this project (libsodium-1.0.19):
+
+[libsodium-1.0.19-stable-mingw.tar.gz](https://download.libsodium.org/libsodium/releases/libsodium-1.0.19-stable-mingw.tar.gz)
+```
+Directory structure:
+..
+|--- pwman-win64.cpp
+|---\libsodium-win64
+    |---\bin
+    |---\include
+    |---\lib
 ```
 
 *Install dependency (Linux/WSL):*
@@ -29,11 +50,16 @@ $./pwman vault.bin cpy _entry   #copy the password of "_entry" to clipboard
 $sudo apt install libsodium-dev
 ```
 
+*Build (Windows):*
+```
+$g++ pwman-win64.cpp -Ilibsodium-win64/include libsodium-win64/lib/libsodium.a -o pwman-w64.exe
+```
+
 *Build (Linux/WSL):*
 ```
-$clang++ -std=c++17 -O2 pwman.cpp -lsodium -o pwman
+$clang++ -std=c++17 -O2 pwman-linux.cpp -lsodium -o pwman
 #OR
-$g++ -std=c++17 -O2 pwman.cpp -lsodium -o pwman
+$g++ -std=c++17 -O2 pwman-linux.cpp -lsodium -o pwman
 ```
 
 > Notes:
