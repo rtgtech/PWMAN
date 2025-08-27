@@ -2,14 +2,14 @@
 
 A Command line based password manager for linux. Built in C++ using Libsodium library.
 
-> Coming soon : **modify**, **del**.
-
 ### Options
 - **init** : initialize a new vault file.
 - **add** : add a new entry.
 - **get** : get the password for a particular entry.
 - **list** : display the list of all entries.
-- **cpy** : copy the password of an entry to the clipboard. (Windows)
+- **cpy** : copy the password of an entry to the clipboard. (Windows Only)
+- **modify** : modify the entry.
+- **del** : delete a password entry.
 
 *Usage:*
 ```
@@ -24,6 +24,10 @@ $./pwman vault.bin list         #list all entries
 #Windows only
 
 $./pwman vault.bin cpy _entry   #copy the password of "_entry" to clipboard.
+
+$./pwman vault.bin modify _entry   #modify the contents of "_entry".
+
+$./pwman vault.bin del _entry   #delete "_entry".
 ```
 
 *Install dependency (Windows):*
@@ -51,6 +55,9 @@ $sudo apt install libsodium-dev
 ```
 
 *Build (Windows):*
+
+> <!> Libsodium is statically linked here.
+
 ```
 $g++ pwman-win64.cpp -Ilibsodium-win64/include libsodium-win64/lib/libsodium.a -o pwman-w64.exe
 ```
