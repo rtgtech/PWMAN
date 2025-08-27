@@ -11,7 +11,7 @@ using namespace std;
 
 using Entry = tuple<string, string, string>;
 
-//  compilation: g++ pwman-win64.cpp -Ilibsodium-win64/include libsodium-win64/lib/libsodium.a -o pwman-w64.exe
+//  compilation: g++ pwman-win64.cpp -Ilibsodium-win64/include libsodium-win64/lib/libsodium.a -o pwman.exe
 const string MAGIC = "PWVN";
 const uint32_t VERSION = 1;
 
@@ -40,19 +40,19 @@ string prompt_hidden(const string &msg)
     char ch;
 
     while ((ch = _getch()) != '\r')
-    { 
+    {
         if (ch == '\b')
-        { 
+        {
             if (!input.empty())
             {
                 input.pop_back();
-                cout << "\b \b";  // Erase character on screen
+                cout << "\b \b";
             }
         }
         else
         {
             input += ch;
-             cout << '*';  // Optional: mask input
+            cout << '*';
         }
     }
 
@@ -113,6 +113,7 @@ static string serialize_vault(const map<string, Entry> &vault)
     }
     return oss.str();
 }
+
 static map<string, Entry> deserialize_vault(const string &data)
 {
     map<string, Entry> vault;
@@ -241,14 +242,14 @@ bool load_vault(const string &path, map<string, Entry> &out_vault)
     vector<unsigned char> cipher;
     if (!read_encrypted_file(path, salt, cipher))
     {
-        cerr << "\x1B[38;5;196mFailed to read vault file or invalid format\x1B[0m\n";
+        cerr << "Failed to read vault file or invalid format\n";
         return false;
     }
-    string password = prompt_hidden("\x1B[38;5;27mMaster password: \x1B[0m");
+    string password = prompt_hidden("Master password: ");
     unsigned char key[KEY_BYTES];
     if (!derive_key_from_password(password, salt, key))
     {
-        cerr << "\x1B[38;5;196mKey derivation failed\x1B[0m\n";
+        cerr << "Key derivation failed\n";
         return false;
     }
     sodium_memzero((void *)password.data(), password.size());
@@ -257,7 +258,7 @@ bool load_vault(const string &path, map<string, Entry> &out_vault)
     sodium_memzero(key, KEY_BYTES);
     if (!ok)
     {
-        cerr << "\x1B[38;5;196mDecryption failed (wrong password or corrupt file)\x1B[0m\n";
+        cerr << "Decryption failed (wrong password or corrupt file)\n";
         return false;
     }
     out_vault = deserialize_vault(plain);
@@ -267,11 +268,11 @@ bool load_vault(const string &path, map<string, Entry> &out_vault)
 bool save_vault(const string &path, const map<string, Entry> &vault, const unsigned char salt[SALT_BYTES])
 {
     string data = serialize_vault(vault);
-    string password = prompt_hidden("\x1B[38;5;27mMaster password: \x1B[0m");
+    string password = prompt_hidden("Master password :");
     unsigned char key[KEY_BYTES];
     if (!derive_key_from_password(password, salt, key))
     {
-        cerr << "\x1B[38;5;196mKey derivation failed\x1B[0m\n";
+        cerr << "Key derivation failed\n";
         return false;
     }
     sodium_memzero((void *)password.data(), password.size());
@@ -280,13 +281,13 @@ bool save_vault(const string &path, const map<string, Entry> &vault, const unsig
     if (!aead_encrypt(data, key, cipher))
     {
         sodium_memzero(key, KEY_BYTES);
-        cerr << "\x1B[38;5;196mEncryption failed\x1B[0m\n";
+        cerr << "Encryption failed\n";
         return false;
     }
     sodium_memzero(key, KEY_BYTES);
     if (!write_encrypted_file(path, salt, cipher))
     {
-        cerr << "\x1B[38;5;196mFailed to write vault file\x1B[0m\n";
+        cerr << "Failed to write vault file\n";
         return false;
     }
     return true;
@@ -296,7 +297,7 @@ int cmd_init(const string &path)
 {
     if (file_exists(path))
     {
-        cerr << "\x1B[38;5;196mError: file exists\x1B[0m\n";
+        cerr << "Error: file exists\n";
         return 1;
     }
     unsigned char salt[SALT_BYTES];
@@ -304,30 +305,25 @@ int cmd_init(const string &path)
     map<string, Entry> empty;
     if (!save_vault(path, empty, salt))
         return 1;
-    cout << "\x1B[38;5;46mInitialized encrypted vault: " << path << "\x1B[0m\n";
+    cout << "Initialized encrypted vault: " << path << "\n";
     return 0;
 }
 
 int cmd_add(const string &path, const string &name)
 {
-    if (!file_exists(path))
-    {
-        cerr << "\x1B[38;5;196mVault missing. Run init first.\x1B[0m\n";
-        return 1;
-    }
     unsigned char salt[SALT_BYTES];
     vector<unsigned char> cipher;
     if (!read_encrypted_file(path, salt, cipher))
     {
-        cerr << "\x1B[38;5;196mRead failed\x1B[0m\n";
+        cerr << "Read failed\n";
         return 1;
     }
 
-    string password = prompt_hidden("\x1B[38;5;27mMaster password: \x1B[0m");
+    string password = prompt_hidden("Master password: ");
     unsigned char key[KEY_BYTES];
     if (!derive_key_from_password(password, salt, key))
     {
-        cerr << "\x1B[38;5;196mKDF failed\x1B[0m\n";
+        cerr << "KDF failed\n";
         return 1;
     }
     sodium_memzero((void *)password.data(), password.size());
@@ -336,7 +332,7 @@ int cmd_add(const string &path, const string &name)
     if (!aead_decrypt(cipher, key, plain))
     {
         sodium_memzero(key, KEY_BYTES);
-        cerr << "\x1B[38;5;196mDecrypt failed\x1B[0m\n";
+        cerr << "Decrypt failed\n";
         return 1;
     }
     auto vault = deserialize_vault(plain);
@@ -355,17 +351,17 @@ int cmd_add(const string &path, const string &name)
     if (!aead_encrypt(serialize_vault(vault), key, new_cipher))
     {
         sodium_memzero(key, KEY_BYTES);
-        cerr << "\x1B[38;5;196mEncrypt failed\x1B[0m\n";
+        cerr << "Encrypt failed\n";
         return 1;
     }
     sodium_memzero(key, KEY_BYTES);
 
     if (!write_encrypted_file(path, salt, new_cipher))
     {
-        cerr << "\x1B[38;5;196mWrite failed\x1B[0m\n";
+        cerr << "Write failed\n";
         return 1;
     }
-    cout << "\x1B[38;5;46mAdded entry '" << name << "'\x1B[0m\n";
+    cout << "Added entry '" << name << "'\n";
     return 0;
 }
 
@@ -403,70 +399,220 @@ int cmd_get(const string &path, const string &name)
     return 0;
 }
 
+int cmd_cpy(const string &path, const string &name)
+{
+    map<string, Entry> vault;
+    if (!load_vault(path, vault))
+        return 1;
+
+    auto it = vault.find(name);
+    if (it == vault.end())
+    {
+        cerr << "No entry named '" << name << "'\n";
+        return 1;
+    }
+
+    const string &password = get<1>(it->second);
+    copy_to_clipboard(password);
+    cout << "Password for '" << name << "' copied to Windows clipboard.\n";
+    return 0;
+}
+
+int cmd_delete(const string &path, const string &name)
+{
+    unsigned char salt[SALT_BYTES];
+    vector<unsigned char> cipher;
+    if (!read_encrypted_file(path, salt, cipher))
+    {
+        cerr << "Read failed\n";
+        return 1;
+    }
+
+    string password = prompt_hidden("Master password: ");
+    unsigned char key[KEY_BYTES];
+    if (!derive_key_from_password(password, salt, key))
+    {
+        cerr << "KDF failed\n";
+        return 1;
+    }
+    sodium_memzero((void *)password.data(), password.size());
+
+    string plain;
+    if (!aead_decrypt(cipher, key, plain))
+    {
+        sodium_memzero(key, KEY_BYTES);
+        cerr << "Decrypt failed\n";
+        return 1;
+    }
+    auto vault = deserialize_vault(plain);
+
+    if (vault.find(name) == vault.end())
+    {
+        cout << "The Entry does not exist";
+        return 0;
+    }
+    else
+    {
+        vault.erase(name);
+    }
+
+    vector<unsigned char> new_cipher;
+    if (!aead_encrypt(serialize_vault(vault), key, new_cipher))
+    {
+        sodium_memzero(key, KEY_BYTES);
+        cerr << "Encrypt failed\n";
+        return 1;
+    }
+    sodium_memzero(key, KEY_BYTES);
+
+    if (!write_encrypted_file(path, salt, new_cipher))
+    {
+        cerr << "Write failed\n";
+        return 1;
+    }
+    cout << "Deleted entry '" << name << "'\n";
+    return 0;
+}
+
+int cmd_modify(const string &path, const string &name)
+{
+    unsigned char salt[SALT_BYTES];
+    vector<unsigned char> cipher;
+    if (!read_encrypted_file(path, salt, cipher))
+    {
+        cerr << "Read failed\n";
+        return 1;
+    }
+
+    string password = prompt_hidden("Master password: ");
+    unsigned char key[KEY_BYTES];
+    if (!derive_key_from_password(password, salt, key))
+    {
+        cerr << "KDF failed\n";
+        return 1;
+    }
+    sodium_memzero((void *)password.data(), password.size());
+
+    string plain;
+    if (!aead_decrypt(cipher, key, plain))
+    {
+        sodium_memzero(key, KEY_BYTES);
+        cerr << "Decrypt failed\n";
+        return 1;
+    }
+    auto vault = deserialize_vault(plain);
+    string user, pass, notes;
+    if (vault.find(name) == vault.end())
+    {
+        cout << "Name not found";
+        return 0;
+    }
+    else
+    {
+        cout <<"<!>Leave empty if you dont want to change any of the following\n";
+        cout << "Username: ";
+        getline(cin, user);
+        cout << "Password: ";
+        getline(cin, pass);
+        cout << "Notes: ";
+        getline(cin, notes);
+        auto it = vault[name];
+        get<0>(vault[name]) = user == "" ? get<0>(it) : user; 
+        get<1>(vault[name]) = pass == "" ? get<1>(it) : pass; 
+        get<2>(vault[name]) = notes == "" ? get<2>(it) : notes;
+    }
+    
+    vector<unsigned char> new_cipher;
+    if (!aead_encrypt(serialize_vault(vault), key, new_cipher))
+    {
+        sodium_memzero(key, KEY_BYTES);
+        cerr << "Encrypt failed\n";
+        return 1;
+    }
+    sodium_memzero(key, KEY_BYTES);
+
+    if (!write_encrypted_file(path, salt, new_cipher))
+    {
+        cerr << "Write failed\n";
+        return 1;
+    }
+    cout << "Modified entry '" << name << "'\n";
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
     if (sodium_init() < 0)
     {
-        cerr << "\x1B[38;5;196mlibsodium init failed\x1B[0m\n";
+        cerr << "libsodium init failed\n";
         return 1;
     }
 
     if (argc < 3)
-    {
-        cerr << "\x1B[38;5;226mUsage: pwman <vaultfile> <command> [name]\n";
-        cerr << "Commands: init, add <name>, list, get <name>, cpy\x1B[0m\n";
+    { //\x1B[38;5;118m \x1B[0m
+        cerr << "\x1B[38;5;118mUsage:\x1B[0m\x1B[38;5;226m pwman\x1B[0m <vaultfile> <command> [name]\n";
+        cerr << "Commands: init, add <name>, list, get <name>, cpy\n";
         return 1;
     }
     string path = argv[1];
-    string cmd = argv[2];
+    string cmd = argv[2]; 
 
     if (cmd == "init")
         return cmd_init(path);
-    if (cmd == "add")
+    else
     {
-        if (argc < 4)
+        if (!file_exists(path))
         {
-            cerr << "\x1B[38;5;226madd requires name\x1B[0m\n";
+            cerr << "Vault does not exist. Run init command!\n";
             return 1;
         }
-        return cmd_add(path, argv[3]);
-    }
-    if (cmd == "list")
-        return cmd_list(path);
-    if (cmd == "get")
-    {
-        if (argc < 4)
+        if (cmd == "add")
         {
-            cerr << "\x1B[38;5;226mget requires name\x1B[0m\n";
-            return 1;
+            if (argc < 4)
+            {
+                cerr << "add requires name\n";
+                return 1;
+            }
+            return cmd_add(path, argv[3]); 
         }
-        return cmd_get(path, argv[3]);
-    }
-    if (cmd == "cpy")
-    {
-        if (argc < 4)
+        if (cmd == "list")
+            return cmd_list(path);
+        if (cmd == "get")
         {
-            cerr << "\x1B[38;5;226mUsage: " << argv[0] << " <vault> cpy <name>\x1B[0m\n";
-            return 1;
+            if (argc < 4)
+            {
+                cerr << "get requires name\n";
+                return 1;
+            }
+            return cmd_get(path, argv[3]);
         }
-        string vault_file = argv[1];
-        string name = argv[3];
-
-        map<string, Entry> vault;
-        if (!load_vault(path, vault))
-            return 1;
-
-        auto it = vault.find(name);
-        if (it == vault.end())
+        if (cmd == "cpy")
         {
-            cerr << "\x1B[38;5;226mNo entry named '" << name << "\x1B[0m'\n";
-            return 1;
+            if (argc < 4)
+            {
+                cerr << "Usage: " << argv[0] << " <vault> cpy <name>\n";
+                return 1;
+            }
+            return cmd_cpy(path, argv[3]);
         }
-
-        const string &password = get<1>(it->second);
-        copy_to_clipboard(password);
-        cout << "\x1B[38;5;46mPassword for '" << name << "' copied to Windows clipboard.\x1B[0m\n";// \x1B[38;5;46m \x1B[0m
-        return 0;
+        if (cmd == "modify")
+        {
+            if (argc < 4)
+            {
+                cerr << "Usage: " << argv[0] << " <vault> modify <name>\n";
+                return 1;
+            }
+            return cmd_modify(path, argv[3]);
+        }
+        if (cmd == "del")
+        {
+            if (argc < 4)
+            {
+                cerr << "Usage: " << argv[0] << " <vault> del <name>\n";
+                return 1;
+            }
+            return cmd_delete(path, argv[3]);
+        }
     }
     cerr << "Unknown command\n";
     return 0;
