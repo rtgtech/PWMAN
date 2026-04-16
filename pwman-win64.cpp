@@ -4,7 +4,12 @@
 #include <map>
 #include <tuple>
 #include <vector>
+#include <cstring>
 #include <sys/stat.h>
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
 #include "libsodium-win64/include/sodium.h"
 #include <conio.h>
 using namespace std;
@@ -27,10 +32,44 @@ static bool file_exists(const string &path)
     struct stat st;
     return (stat(path.c_str(), &st) == 0);
 }
-void copy_to_clipboard(const string &text)
+bool copy_to_clipboard(const string &text)
 {
-    string command = "echo " + text + "| clip.exe";
-    system(command.c_str());
+    if (!OpenClipboard(nullptr))
+        return false;
+
+    if (!EmptyClipboard())
+    {
+        CloseClipboard();
+        return false;
+    }
+
+    HGLOBAL buffer = GlobalAlloc(GMEM_MOVEABLE, text.size() + 1);
+    if (!buffer)
+    {
+        CloseClipboard();
+        return false;
+    }
+
+    void *memory = GlobalLock(buffer);
+    if (!memory)
+    {
+        GlobalFree(buffer);
+        CloseClipboard();
+        return false;
+    }
+
+    memcpy(memory, text.c_str(), text.size() + 1);
+    GlobalUnlock(buffer);
+
+    if (!SetClipboardData(CF_TEXT, buffer))
+    {
+        GlobalFree(buffer);
+        CloseClipboard();
+        return false;
+    }
+
+    CloseClipboard();
+    return true;
 }
 
 string prompt_hidden(const string &msg)
@@ -413,7 +452,11 @@ int cmd_cpy(const string &path, const string &name)
     }
 
     const string &password = get<1>(it->second);
-    copy_to_clipboard(password);
+    if (!copy_to_clipboard(password))
+    {
+        cerr << "Failed to copy password to Windows clipboard.\n";
+        return 1;
+    }
     cout << "Password for '" << name << "' copied to Windows clipboard.\n";
     return 0;
 }
@@ -522,6 +565,7 @@ int cmd_modify(const string &path, const string &name)
         get<2>(vault[name]) = notes == "" ? get<2>(it) : notes;
     }
     
+
     vector<unsigned char> new_cipher;
     if (!aead_encrypt(serialize_vault(vault), key, new_cipher))
     {
@@ -548,14 +592,14 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    if (argc < 3)
-    { //\x1B[38;5;118m \x1B[0m
-        cerr << "\x1B[38;5;118mUsage:\x1B[0m\x1B[38;5;226m pwman\x1B[0m <vaultfile> <command> [name]\n";
+    if (argc < 2)
+    { 
+        cerr << "Usage: pwman <vaultfile> <command> [name]\n";
         cerr << "Commands: init, add <name>, list, get <name>, cpy\n";
         return 1;
     }
-    string path = argv[1];
-    string cmd = argv[2]; 
+    string path = "vault.pwmn";
+    string cmd = argv[1]; 
 
     if (cmd == "init")
         return cmd_init(path);
@@ -568,52 +612,53 @@ int main(int argc, char **argv)
         }
         if (cmd == "add")
         {
-            if (argc < 4)
+            if (argc < 3)
             {
                 cerr << "add requires name\n";
                 return 1;
             }
-            return cmd_add(path, argv[3]); 
+            return cmd_add(path, argv[2]);
         }
         if (cmd == "list")
             return cmd_list(path);
         if (cmd == "get")
         {
-            if (argc < 4)
+            if (argc < 3)
             {
                 cerr << "get requires name\n";
                 return 1;
             }
-            return cmd_get(path, argv[3]);
+            return cmd_get(path, argv[2]);
         }
         if (cmd == "cpy")
         {
-            if (argc < 4)
+            if (argc < 3)
             {
                 cerr << "Usage: " << argv[0] << " <vault> cpy <name>\n";
                 return 1;
             }
-            return cmd_cpy(path, argv[3]);
+            return cmd_cpy(path, argv[2]);
         }
         if (cmd == "modify")
         {
-            if (argc < 4)
+            if (argc < 3)
             {
                 cerr << "Usage: " << argv[0] << " <vault> modify <name>\n";
                 return 1;
             }
-            return cmd_modify(path, argv[3]);
+            return cmd_modify(path, argv[2]);
         }
         if (cmd == "del")
         {
-            if (argc < 4)
+            if (argc < 3)
             {
                 cerr << "Usage: " << argv[0] << " <vault> del <name>\n";
                 return 1;
             }
-            return cmd_delete(path, argv[3]);
+            return cmd_delete(path, argv[2]);
         }
     }
+    cout << argv[0] << argv[1] << argv[2];
     cerr << "Unknown command\n";
     return 0;
 }
