@@ -584,6 +584,20 @@ int cmd_modify(const string &path, const string &name)
     return 0;
 }
 
+static void print_help()
+{
+    cerr << "Usage: pwman <command> [name]\n";
+    cerr << "Default vault: vault.pwmn\n";
+    cerr << "Commands:\n";
+    cerr << "  init          Create a new encrypted vault.\n";
+    cerr << "  add <name>    Add or replace an entry.\n";
+    cerr << "  list          Show all saved entry names.\n";
+    cerr << "  get <name>    Show the stored username, password, and notes.\n";
+    cerr << "  cpy <name>    Copy the entry password to the clipboard.\n";
+    cerr << "  modify <name> Update an existing entry.\n";
+    cerr << "  del <name>    Delete an existing entry.\n";
+}
+
 int main(int argc, char **argv)
 {
     if (sodium_init() < 0)
@@ -594,8 +608,7 @@ int main(int argc, char **argv)
 
     if (argc < 2)
     { 
-        cerr << "Usage: pwman <vaultfile> <command> [name]\n";
-        cerr << "Commands: init, add <name>, list, get <name>, cpy\n";
+        print_help();
         return 1;
     }
     string path = "vault.pwmn";
