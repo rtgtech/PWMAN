@@ -568,6 +568,20 @@ static bool is_command_name(const string &value)
            value == "cpy" || value == "modify" || value == "del";
 }
 
+static void print_help()
+{
+    cerr << "Usage: pwman [vaultfile] <command> [name]\n";
+    cerr << "Default vault: vault.bin\n";
+    cerr << "Commands:\n";
+    cerr << "  init          Create a new encrypted vault.\n";
+    cerr << "  add <name>    Add or replace an entry.\n";
+    cerr << "  list          Show all saved entry names.\n";
+    cerr << "  get <name>    Show the stored username, password, and notes.\n";
+    cerr << "  cpy <name>    Copy the entry password to the clipboard.\n";
+    cerr << "  modify <name> Update an existing entry.\n";
+    cerr << "  del <name>    Delete an existing entry.\n";
+}
+
 int main(int argc, char **argv)
 {
     if (sodium_init() < 0)
@@ -578,9 +592,7 @@ int main(int argc, char **argv)
 
     if (argc < 2)
     {
-        cerr << "Usage: pwman [vaultfile] <command> [name]\n";
-        cerr << "Default vault: vault.bin\n";
-        cerr << "Commands: init, add <name>, list, get <name>, cpy <name>, modify <name>, del <name>\n";
+        print_help();
         return 1;
     }
 
@@ -596,8 +608,7 @@ int main(int argc, char **argv)
     {
         if (argc < 3)
         {
-            cerr << "Usage: pwman [vaultfile] <command> [name]\n";
-            cerr << "Default vault: vault.bin\n";
+            print_help();
             return 1;
         }
         path = argv[1];
